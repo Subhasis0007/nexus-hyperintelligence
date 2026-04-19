@@ -1,3 +1,3 @@
-module github.com/nexus-hyperintelligence/sdk
+module github.com/Subhasis0007/nexus-hyperintelligence/sdks/go
 
 go 1.22
