@@ -64,9 +64,14 @@ public class KnowledgeGraphService : IKnowledgeGraphService
             nodes = scored.Select(x => x.node).ToList();
         }
 
-        var edgeIds = nodes.SelectMany(n => n.OutgoingEdges.Select(e => e.Id)).ToHashSet();
+        var nodeIds = nodes.Select(n => n.Id).ToHashSet();
         List<KnowledgeEdge> edges;
-        lock (_lockObj) { edges = _edges.Values.Where(e => edgeIds.Contains(e.Id)).ToList(); }
+        lock (_lockObj)
+        {
+            edges = _edges.Values
+                .Where(e => nodeIds.Contains(e.SourceNodeId) || nodeIds.Contains(e.TargetNodeId))
+                .ToList();
+        }
 
         sw.Stop();
         return Task.FromResult(new KnowledgeQueryResult

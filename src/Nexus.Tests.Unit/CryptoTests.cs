@@ -265,10 +265,12 @@ public class CryptoTests
         var sim1 = new Groth16Simulator("circuit-a");
         var sim2 = new Groth16Simulator("circuit-b");
         var proof = sim1.Prove(new byte[] { 1 }, new byte[] { 2 });
-        proof = proof with { Circuit = "circuit-b" };
-        // circuit name matches but proof bytes don't match verifying key — sim returns false
-        // In our simulation circuit name check rejects it:
-        var modifiedProof = new ZkpProof { Circuit = "circuit-x", ProofBytes = proof.ProofBytes, PublicInputs = proof.PublicInputs };
+        var modifiedProof = new ZkpProof
+        {
+            Circuit = "circuit-x",
+            ProofBytes = proof.ProofBytes,
+            PublicInputs = proof.PublicInputs
+        };
         sim2.Verify(modifiedProof).Should().BeFalse();
     }
 

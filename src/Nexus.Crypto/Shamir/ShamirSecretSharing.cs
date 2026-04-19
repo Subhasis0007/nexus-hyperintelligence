@@ -8,42 +8,63 @@ namespace Nexus.Crypto.Shamir;
 /// </summary>
 public sealed class ShamirSecretSharing
 {
-    private static readonly byte[] _gfLog   = new byte[256];
-    private static readonly byte[] _gfAntiLog = new byte[512];
-
-    static ShamirSecretSharing()
-    {
-        // Build GF(2^8) log / antilog tables with primitive polynomial x^8+x^4+x^3+x^2+1
-        int x = 1;
-        for (int i = 0; i < 255; i++)
-        {
-            _gfAntiLog[i] = (byte)x;
-            _gfLog[x] = (byte)i;
-            x <<= 1;
-            if ((x & 0x100) != 0) x ^= 0x11b;
-        }
-        _gfAntiLog[255] = _gfAntiLog[0];
-        for (int i = 256; i < 512; i++) _gfAntiLog[i] = _gfAntiLog[i - 255];
-    }
-
     private static byte GfMul(byte a, byte b)
     {
-        if (a == 0 || b == 0) return 0;
-        return _gfAntiLog[_gfLog[a] + _gfLog[b]];
+        byte result = 0;
+        byte x = a;
+        byte y = b;
+
+        while (y != 0)
+        {
+            if ((y & 1) != 0)
+            {
+                result ^= x;
+            }
+
+            var carry = (x & 0x80) != 0;
+            x <<= 1;
+            if (carry)
+            {
+                x ^= 0x1B;
+            }
+
+            y >>= 1;
+        }
+
+        return result;
+    }
+
+    private static byte GfPow(byte value, int exponent)
+    {
+        byte result = 1;
+        byte baseValue = value;
+        int exp = exponent;
+
+        while (exp > 0)
+        {
+            if ((exp & 1) != 0)
+            {
+                result = GfMul(result, baseValue);
+            }
+
+            baseValue = GfMul(baseValue, baseValue);
+            exp >>= 1;
+        }
+
+        return result;
+    }
+
+    private static byte GfInv(byte a)
+    {
+        if (a == 0) throw new DivideByZeroException("GF inverse of zero");
+        return GfPow(a, 254);
     }
 
     private static byte GfDiv(byte a, byte b)
     {
         if (b == 0) throw new DivideByZeroException("GF division by zero");
         if (a == 0) return 0;
-        return _gfAntiLog[255 + _gfLog[a] - _gfLog[b]];
-    }
-
-    private static byte GfPow(byte a, byte b)
-    {
-        if (b == 0) return 1;
-        if (a == 0) return 0;
-        return _gfAntiLog[_gfLog[a] * b % 255];
+        return GfMul(a, GfInv(b));
     }
 
     /// <summary>Split secret into n shares requiring threshold to recover.</summary>

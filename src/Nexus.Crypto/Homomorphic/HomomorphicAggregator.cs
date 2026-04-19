@@ -24,7 +24,9 @@ public sealed class HomomorphicAggregator
         // Additive-homomorphic encoding: c = (value mod n) + random_noise
         // Real Paillier: c = g^m * r^n mod n^2
         var noise = (long)(System.Security.Cryptography.RandomNumberGenerator.GetInt32(1000));
-        var encoded = (ulong)((value % (long)_modulus + (long)_modulus) % (long)_modulus);
+        ulong encoded = value >= 0
+            ? (ulong)value % _modulus
+            : (_modulus - ((ulong)(-value) % _modulus)) % _modulus;
         var data = BitConverter.GetBytes(encoded);
         return new HomomorphicCiphertext
         {

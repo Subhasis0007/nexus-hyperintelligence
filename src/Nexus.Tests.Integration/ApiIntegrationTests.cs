@@ -34,15 +34,16 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact] public async Task GetAgents_ResponseIsPagedResult()
     {
         var resp = await _client.GetAsync("/api/agents");
-        var body = await resp.Content.ReadFromJsonAsync<PagedResult<Agent>>();
+        var body = await resp.Content.ReadFromJsonAsync<ApiResponse<List<Agent>>>();
         body.Should().NotBeNull();
+        body!.Success.Should().BeTrue();
     }
 
     [Fact] public async Task GetAgents_Has200Items()
     {
         var resp = await _client.GetAsync("/api/agents?page=1&pageSize=200");
-        var body = await resp.Content.ReadFromJsonAsync<PagedResult<Agent>>();
-        body!.TotalCount.Should().Be(200);
+        var body = await resp.Content.ReadFromJsonAsync<ApiResponse<List<Agent>>>();
+        body!.Data!.Count.Should().Be(200);
     }
 
     [Fact] public async Task GetAgent_Unknown_Returns404()
@@ -61,8 +62,8 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact] public async Task GetSwarms_Has16Items()
     {
         var resp = await _client.GetAsync("/api/swarms");
-        var body = await resp.Content.ReadFromJsonAsync<PagedResult<Swarm>>();
-        body!.TotalCount.Should().Be(16);
+        var body = await resp.Content.ReadFromJsonAsync<ApiResponse<List<Swarm>>>();
+        body!.Data!.Count.Should().Be(16);
     }
 
     // ── Tenants ───────────────────────────────────────────────────────────
@@ -81,13 +82,13 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact] public async Task GetDefaultTenant_IsEnterprise()
     {
         var resp = await _client.GetAsync("/api/tenants/tenant-default");
-        var body = await resp.Content.ReadFromJsonAsync<Tenant>();
-        body!.Tier.Should().Be(TenantTier.Enterprise);
+        var body = await resp.Content.ReadFromJsonAsync<ApiResponse<Tenant>>();
+        body!.Data!.Tier.Should().Be(TenantTier.Enterprise);
     }
 
     [Fact] public async Task CreateTenant_Returns201()
     {
-        var req = new TenantCreateRequest { Name = "IntTestCo", ContactEmail = "int@test.co" };
+        var req = new TenantCreateRequest { Name = "IntTestCo", AdminEmail = "int@test.co" };
         var resp = await _client.PostAsJsonAsync("/api/tenants", req);
         resp.StatusCode.Should().Be(HttpStatusCode.Created);
     }
@@ -114,7 +115,12 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 
     [Fact] public async Task Shamir_Split_Returns200()
     {
-        var req = new { secret = Convert.ToBase64String(new byte[] { 1, 2, 3, 4 }), threshold = 3, total = 5 };
+        var req = new
+        {
+            secretBase64 = Convert.ToBase64String(new byte[] { 1, 2, 3, 4 }),
+            threshold = 3,
+            totalShares = 5
+        };
         var resp = await _client.PostAsJsonAsync("/api/crypto/shamir/split", req);
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
     }
