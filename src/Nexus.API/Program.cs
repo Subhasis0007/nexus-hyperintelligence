@@ -2,6 +2,7 @@ using Nexus.Agents;
 using Nexus.API.GraphQL;
 using Nexus.API.Hubs;
 using Nexus.API.Middleware;
+using Nexus.Core.AI;
 using Nexus.Core.Interfaces;
 using Nexus.Core.Services;
 using Nexus.Crypto.Services;
@@ -22,6 +23,14 @@ builder.Services.AddSwaggerGen(c =>
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey
     });
 });
+
+// ── HTTP client factory (required by AIProviderFactory) ──────────────────
+builder.Services.AddHttpClient();
+
+// ── AI Provider (hybrid: offline / online / auto via NEXUS_AI_MODE) ───────
+builder.Services.AddSingleton<AIProviderFactory>();
+builder.Services.AddSingleton<IAIProviderFactory>(sp => sp.GetRequiredService<AIProviderFactory>());
+builder.Services.AddSingleton<AIService>();
 
 // ── Domain Services ───────────────────────────────────────────────────────
 builder.Services.AddSingleton<ISemanticKernelService, SemanticKernelService>();
