@@ -6,6 +6,7 @@ namespace Nexus.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 [Produces("application/json")]
 public class AgentsController : ControllerBase
 {
@@ -67,5 +68,12 @@ public class AgentsController : ControllerBase
             ByCapability = agents.GroupBy(a => a.AgentModel.Capability).ToDictionary(g => g.Key.ToString(), g => g.Count())
         };
         return Ok(ApiResponse<object>.Ok(stats, HttpContext.TraceIdentifier));
+    }
+
+    [HttpGet("count")]
+    public IActionResult Count([FromHeader(Name = "X-Tenant-ID")] string tenantId = "tenant-default")
+    {
+        var total = _orchestrator.GetAllAgents().Count(a => a.AgentModel.TenantId == tenantId);
+        return Ok(ApiResponse<object>.Ok(new { count = total }, HttpContext.TraceIdentifier));
     }
 }

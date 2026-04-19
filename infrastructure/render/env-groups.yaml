@@ -1,0 +1,40 @@
+envVarGroups:
+  - name: nexus-shared-production
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      - key: NEXUS_DEFAULT_TENANT_ID
+        value: tenant-default
+      - key: NEO4J_URI
+        value: bolt://nexus-neo4j:7687
+      - key: NEO4J_USERNAME
+        value: neo4j
+      - key: KAFKA_URL
+        value: nexus-kafka:9092
+      - key: WEAVIATE_URL
+        value: http://nexus-weaviate:8080
+      - key: QDRANT_URL
+        value: http://nexus-qdrant:6333
+      - key: MINIO_ENDPOINT
+        value: http://nexus-minio:9000
+
+  - name: nexus-secrets-production
+    envVars:
+      - key: NEXUS_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: NEO4J_AUTH
+        sync: false
+      - key: MINIO_ROOT_USER
+        sync: false
+      - key: MINIO_ROOT_PASSWORD
+        sync: false

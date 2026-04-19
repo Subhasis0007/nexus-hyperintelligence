@@ -5,6 +5,7 @@ using Nexus.API.Middleware;
 using Nexus.Core.Interfaces;
 using Nexus.Core.Services;
 using Nexus.Crypto.Services;
+using Nexus.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -66,17 +67,66 @@ app.UseMiddleware<TenantMiddleware>();
 
 app.MapControllers();
 app.MapHub<AgentHub>("/hubs/agents");
+app.MapHub<AgentHub>("/ws/telemetry");
 app.MapGraphQL("/graphql");
 app.MapHealthChecks("/health");
 // Metrics endpoint (requires Prometheus setup)
 app.Map("/metrics", () => Results.Ok("Metrics endpoint"));
 
-// ── Bootstrap orchestrator with default tenant ────────────────────────────
+// ── Bootstrap orchestrator and connectors with default tenant ─────────────
 var orchestrator = app.Services.GetRequiredService<SwarmOrchestrator>();
 orchestrator.InitializeForTenant("tenant-default");
+
+var connectorRegistry = app.Services.GetRequiredService<IConnectorRegistry>();
+await SeedConnectorsAsync(connectorRegistry, "tenant-default");
 
 app.Logger.LogInformation("Nexus HyperIntelligence API starting on {Urls}", app.Configuration["ASPNETCORE_URLS"] ?? "http://+:5000");
 
 app.Run();
+
+static async Task SeedConnectorsAsync(IConnectorRegistry registry, string tenantId)
+{
+    var existing = await registry.GetAllAsync(tenantId);
+    if (existing.Count >= 42)
+    {
+        return;
+    }
+
+    var connectorTypes = Enum.GetValues<ConnectorType>();
+    for (var i = 1; i <= 42; i++)
+    {
+        var id = $"connector-{i:D3}";
+        if (await registry.GetAsync(id) != null)
+        {
+            continue;
+        }
+
+        var connector = new Connector
+        {
+            Id = id,
+            Name = $"Connector {i:D3}",
+            TenantId = tenantId,
+            Type = connectorTypes[(i - 1) % connectorTypes.Length],
+            AuthType = ConnectorAuthType.ApiKey,
+            Status = ConnectorStatus.Active,
+            BaseUrl = $"https://connector-{i:D3}.internal.nexus",
+            Config = new Dictionary<string, string>
+            {
+                ["region"] = "global",
+                ["mode"] = "readonly"
+            },
+            Health = new ConnectorHealthInfo
+            {
+                IsHealthy = true,
+                ResponseTimeMs = 25 + (i % 10),
+                SuccessfulCallsLast24h = 1000 + i,
+                FailedCallsLast24h = 0,
+                LastChecked = DateTimeOffset.UtcNow
+            }
+        };
+
+        await registry.RegisterAsync(connector);
+    }
+}
 
 public partial class Program { } // for WebApplicationFactory in integration tests

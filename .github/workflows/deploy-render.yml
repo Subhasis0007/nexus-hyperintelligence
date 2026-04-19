@@ -1,0 +1,52 @@
+name: deploy-render
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_NEXUS_API_SERVICE_ID: ${{ secrets.RENDER_NEXUS_API_SERVICE_ID }}
+          RENDER_NEXUS_API_URL: ${{ secrets.RENDER_NEXUS_API_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$RENDER_API_KEY"
+          test -n "$RENDER_NEXUS_API_SERVICE_ID"
+          test -n "$RENDER_NEXUS_API_URL"
+
+      - name: Trigger Render deploy for nexus-api
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ secrets.RENDER_NEXUS_API_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+          curl -sS -X POST "https://api.render.com/v1/services/${SERVICE_ID}/deploys" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            --data '{}'
+
+      - name: Health check
+        env:
+          BASE_URL: ${{ secrets.RENDER_NEXUS_API_URL }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health")
+            if [ "$CODE" = "200" ]; then
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Health check failed"
+          exit 1

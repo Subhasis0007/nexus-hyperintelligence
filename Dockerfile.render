@@ -1,0 +1,30 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+COPY ["src/Nexus.Models/Nexus.Models.csproj", "src/Nexus.Models/"]
+COPY ["src/Nexus.Crypto/Nexus.Crypto.csproj", "src/Nexus.Crypto/"]
+COPY ["src/Nexus.Core/Nexus.Core.csproj", "src/Nexus.Core/"]
+COPY ["src/Nexus.Agents/Nexus.Agents.csproj", "src/Nexus.Agents/"]
+COPY ["src/Nexus.API/Nexus.API.csproj", "src/Nexus.API/"]
+RUN dotnet restore "src/Nexus.API/Nexus.API.csproj"
+
+COPY . .
+WORKDIR "/src/src/Nexus.API"
+RUN dotnet publish "Nexus.API.csproj" -c Release -o /out /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /out .
+
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DOTNET_RUNNING_IN_CONTAINER=true
+
+EXPOSE 10000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=5 \
+  CMD wget -qO- "http://127.0.0.1:${PORT:-10000}/health" || exit 1
+
+ENTRYPOINT ["sh", "-c", "ASPNETCORE_URLS=http://0.0.0.0:${PORT:-10000} dotnet Nexus.API.dll"]

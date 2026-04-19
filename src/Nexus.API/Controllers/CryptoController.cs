@@ -6,6 +6,7 @@ namespace Nexus.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 [Produces("application/json")]
 public class CryptoController : ControllerBase
 {
@@ -58,6 +59,15 @@ public class CryptoController : ControllerBase
         }, HttpContext.TraceIdentifier));
     }
 
+    [HttpPost("dilithium/sign")]
+    public IActionResult DilithiumSign([FromBody] DilithiumSignRequest request)
+    {
+        var privateKey = Convert.FromBase64String(request.PrivateKeyBase64);
+        var message = Convert.FromBase64String(request.MessageBase64);
+        var signature = _crypto.DilithiumSign(message, privateKey, request.KeyId ?? "render-dilithium-key");
+        return Ok(ApiResponse<DigitalSignature>.Ok(signature, HttpContext.TraceIdentifier));
+    }
+
     [HttpPost("shamir/split")]
     public IActionResult ShamirSplit([FromBody] ShamirSplitRequest request)
     {
@@ -88,8 +98,50 @@ public class CryptoController : ControllerBase
         var valid = _crypto.Groth16Verify(proof);
         return Ok(ApiResponse<bool>.Ok(valid, HttpContext.TraceIdentifier));
     }
+
+    [HttpPost("he/demo")]
+    public IActionResult HomomorphicDemo([FromBody] HomomorphicDemoRequest request)
+    {
+        var values = request.Values ?? new List<long>();
+        if (values.Count == 0)
+        {
+            values = new List<long> { 10, 20, 30 };
+        }
+
+        var encrypted = values.Select(_crypto.HEncrypt).ToList();
+        var aggregate = encrypted.Aggregate(_crypto.HAdd);
+        var decryptedSum = _crypto.HDecrypt(aggregate);
+
+        return Ok(ApiResponse<object>.Ok(new
+        {
+            input = values,
+            encryptedCount = encrypted.Count,
+            sum = decryptedSum,
+            average = (double)decryptedSum / values.Count
+        }, HttpContext.TraceIdentifier));
+    }
+
+    [HttpPost("mpc/demo")]
+    public IActionResult MpcDemo([FromBody] MpcDemoRequest request)
+    {
+        var secret = Convert.FromBase64String(request.SecretBase64);
+        var shares = _crypto.ShamirSplit(secret, request.Threshold, request.TotalShares);
+        var recovered = _crypto.ShamirCombine(shares.Take(request.Threshold).ToList());
+
+        return Ok(ApiResponse<object>.Ok(new
+        {
+            threshold = request.Threshold,
+            totalShares = request.TotalShares,
+            shareCount = shares.Count,
+            recoveredSecretBase64 = Convert.ToBase64String(recovered),
+            recoveredMatches = recovered.SequenceEqual(secret)
+        }, HttpContext.TraceIdentifier));
+    }
 }
 
 public record KyberEncapsulateRequest(string PublicKeyBase64);
+public record DilithiumSignRequest(string MessageBase64, string PrivateKeyBase64, string? KeyId = null);
+public record HomomorphicDemoRequest(List<long> Values);
+public record MpcDemoRequest(string SecretBase64, int Threshold = 3, int TotalShares = 5);
 public record ShamirSplitRequest(string SecretBase64, int Threshold = 3, int TotalShares = 5);
 public record ZkpProveRequest(string Circuit, string PublicInputsBase64, string WitnessBase64);

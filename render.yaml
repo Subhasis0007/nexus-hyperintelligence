@@ -1,0 +1,155 @@
+services:
+  - type: web
+    name: nexus-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      - key: NEXUS_API_KEY
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: nexus-redis
+          property: connectionString
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nexus-postgres
+          property: connectionString
+      - key: NEO4J_URI
+        value: bolt://nexus-neo4j:7687
+      - key: KAFKA_URL
+        value: nexus-kafka:9092
+      - key: WEAVIATE_URL
+        value: http://nexus-weaviate:8080
+      - key: QDRANT_URL
+        value: http://nexus-qdrant:6333
+      - key: MINIO_ENDPOINT
+        value: http://nexus-minio:9000
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: NEO4J_USERNAME
+        value: neo4j
+      - key: NEO4J_PASSWORD
+        sync: false
+
+  - type: redis
+    name: nexus-redis
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+  - type: pserv
+    name: nexus-neo4j
+    runtime: docker
+    plan: free
+    image:
+      url: docker.io/library/neo4j:5.18
+    disk:
+      name: neo4j-data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      - key: NEO4J_AUTH
+        sync: false
+      - key: NEO4J_dbms_memory_heap_initial__size
+        value: 512m
+      - key: NEO4J_dbms_memory_heap_max__size
+        value: 512m
+      - key: NEO4J_dbms_memory_pagecache_size
+        value: 256m
+
+  - type: pserv
+    name: nexus-kafka
+    runtime: docker
+    plan: free
+    image:
+      url: docker.io/bitnami/kafka:3.6
+    envVars:
+      - key: KAFKA_CFG_NODE_ID
+        value: "0"
+      - key: KAFKA_CFG_PROCESS_ROLES
+        value: controller,broker
+      - key: KAFKA_CFG_LISTENERS
+        value: PLAINTEXT://:9092,CONTROLLER://:9093
+      - key: KAFKA_CFG_ADVERTISED_LISTENERS
+        value: PLAINTEXT://nexus-kafka:9092
+      - key: KAFKA_CFG_CONTROLLER_QUORUM_VOTERS
+        value: 0@nexus-kafka:9093
+      - key: KAFKA_CFG_CONTROLLER_LISTENER_NAMES
+        value: CONTROLLER
+      - key: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
+        value: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - key: KAFKA_CFG_INTER_BROKER_LISTENER_NAME
+        value: PLAINTEXT
+      - key: ALLOW_PLAINTEXT_LISTENER
+        value: "yes"
+
+  - type: pserv
+    name: nexus-weaviate
+    runtime: docker
+    plan: free
+    image:
+      url: docker.io/semitechnologies/weaviate:1.25.3
+    disk:
+      name: weaviate-data
+      mountPath: /var/lib/weaviate
+      sizeGB: 10
+    envVars:
+      - key: QUERY_DEFAULTS_LIMIT
+        value: "25"
+      - key: AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED
+        value: "true"
+      - key: PERSISTENCE_DATA_PATH
+        value: /var/lib/weaviate
+      - key: DEFAULT_VECTORIZER_MODULE
+        value: none
+      - key: ENABLE_MODULES
+        value: ""
+      - key: CLUSTER_HOSTNAME
+        value: nexus-weaviate
+
+  - type: pserv
+    name: nexus-qdrant
+    runtime: docker
+    plan: free
+    image:
+      url: docker.io/qdrant/qdrant:v1.9.1
+    disk:
+      name: qdrant-data
+      mountPath: /qdrant/storage
+      sizeGB: 10
+
+  - type: pserv
+    name: nexus-minio
+    runtime: docker
+    plan: free
+    image:
+      url: docker.io/minio/minio:RELEASE.2024-04-18T19-09-19Z
+    disk:
+      name: minio-data
+      mountPath: /data
+      sizeGB: 10
+    dockerCommand: server /data --console-address :9001
+    envVars:
+      - key: MINIO_ROOT_USER
+        sync: false
+      - key: MINIO_ROOT_PASSWORD
+        sync: false
+
+databases:
+  - name: nexus-postgres
+    plan: starter
+    databaseName: nexus
+    user: nexus
+    ipAllowList: []
