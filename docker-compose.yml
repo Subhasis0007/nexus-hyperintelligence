@@ -1,0 +1,398 @@
+version: '3.9'
+
+networks:
+  nexus-net:
+    driver: bridge
+
+volumes:
+  neo4j-data:
+  redis-data:
+  kafka-data:
+  weaviate-data:
+  qdrant-data:
+  clickhouse-data:
+  grafana-data:
+  prometheus-data:
+  minio-data:
+
+services:
+
+  # ─── ZooKeeper ───────────────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    hostname: zookeeper
+    container_name: nexus-zookeeper
+    networks: [nexus-net]
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep imok"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ─── Kafka ───────────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: kafka
+    container_name: nexus-kafka
+    networks: [nexus-net]
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:29092"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 60s
+
+  # ─── Neo4j ───────────────────────────────────────────────────────────────
+  neo4j:
+    image: neo4j:5.18-community
+    hostname: neo4j
+    container_name: nexus-neo4j
+    networks: [nexus-net]
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    environment:
+      NEO4J_AUTH: neo4j/nexus_password
+      NEO4J_dbms_memory_pagecache_size: 512M
+      NEO4J_dbms_memory_heap_initial__size: 256M
+      NEO4J_dbms_memory_heap_max__size: 512M
+      NEO4J_server_default__listen__address: 0.0.0.0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 45s
+
+  # ─── Redis ───────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    hostname: redis
+    container_name: nexus-redis
+    networks: [nexus-net]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── NATS ────────────────────────────────────────────────────────────────
+  nats:
+    image: nats:2.10-alpine
+    hostname: nats
+    container_name: nexus-nats
+    networks: [nexus-net]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: -js -m 8222 -sd /data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8222/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Mosquitto (MQTT) ────────────────────────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    hostname: mosquitto
+    container_name: nexus-mosquitto
+    networks: [nexus-net]
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./infrastructure/docker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -i healthcheck -W 3 || exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  # ─── Weaviate ────────────────────────────────────────────────────────────
+  weaviate:
+    image: semitechnologies/weaviate:1.24.6
+    hostname: weaviate
+    container_name: nexus-weaviate
+    networks: [nexus-net]
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    volumes:
+      - weaviate-data:/var/lib/weaviate
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      ENABLE_MODULES: ""
+      CLUSTER_HOSTNAME: node1
+      LOG_LEVEL: warning
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8080/v1/.well-known/ready || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ─── Qdrant ──────────────────────────────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    hostname: qdrant
+    container_name: nexus-qdrant
+    networks: [nexus-net]
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:6333/readyz || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  # ─── ClickHouse ──────────────────────────────────────────────────────────
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    hostname: clickhouse
+    container_name: nexus-clickhouse
+    networks: [nexus-net]
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8123/ping || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  # ─── Prometheus ──────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    hostname: prometheus
+    container_name: nexus-prometheus
+    networks: [nexus-net]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:9090/-/ready || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ─── Grafana ─────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    hostname: grafana
+    container_name: nexus-grafana
+    networks: [nexus-net]
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infrastructure/docker/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: nexus_admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_LOG_LEVEL: warn
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ─── Jaeger ──────────────────────────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:1.56
+    hostname: jaeger
+    container_name: nexus-jaeger
+    networks: [nexus-net]
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      LOG_LEVEL: warn
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:14269/ || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  # ─── MinIO ───────────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-03-15T01-07-19Z
+    hostname: minio
+    container_name: nexus-minio
+    networks: [nexus-net]
+    ports:
+      - "9099:9000"
+      - "9100:9001"
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: nexus_admin
+      MINIO_ROOT_PASSWORD: nexus_password
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:9000/minio/health/live || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  # ─── Temporal ────────────────────────────────────────────────────────────
+  temporal:
+    image: temporalio/auto-setup:1.23.0
+    hostname: temporal
+    container_name: nexus-temporal
+    networks: [nexus-net]
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=sqlite
+      - TEMPORAL_ADDRESS=temporal:7233
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:7233 || tctl --address temporal:7233 cluster health 2>/dev/null | grep -q SERVING || exit 0"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 60s
+
+  temporal-ui:
+    image: temporalio/ui:2.26.2
+    hostname: temporal-ui
+    container_name: nexus-temporal-ui
+    networks: [nexus-net]
+    ports:
+      - "8088:8080"
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+    depends_on:
+      temporal:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8080 || exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ─── Kong (DB-less) ──────────────────────────────────────────────────────
+  kong:
+    image: kong:3.6.1
+    hostname: kong
+    container_name: nexus-kong
+    networks: [nexus-net]
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+      - "8001:8001"
+      - "8444:8444"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+    volumes:
+      - ./infrastructure/docker/kong.yml:/kong/declarative/kong.yml:ro
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ─── Nexus API ───────────────────────────────────────────────────────────
+  nexus-api:
+    build:
+      context: .
+      dockerfile: src/Nexus.API/Dockerfile
+    hostname: nexus-api
+    container_name: nexus-api
+    networks: [nexus-net]
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_URLS: http://+:5000
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Redis: redis:6379
+      ConnectionStrings__Neo4j: bolt://neo4j:7687
+      ConnectionStrings__Kafka: kafka:29092
+      ConnectionStrings__Weaviate: http://weaviate:8080
+      ConnectionStrings__Qdrant: http://qdrant:6333
+      ConnectionStrings__ClickHouse: http://clickhouse:8123
+      Neo4j__Username: neo4j
+      Neo4j__Password: nexus_password
+      Jaeger__Endpoint: http://jaeger:4317
+    depends_on:
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:5000/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
