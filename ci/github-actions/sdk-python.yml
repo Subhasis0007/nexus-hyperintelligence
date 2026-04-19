@@ -1,0 +1,36 @@
+name: Python SDK
+
+on:
+  push:
+    paths: [ 'sdks/python/**', 'cryptographic-privacy/**' ]
+  pull_request:
+    paths: [ 'sdks/python/**' ]
+
+jobs:
+  sdk-python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install SDK
+        run: pip install -e ./sdks/python
+      - name: Lint
+        run: |
+          pip install flake8
+          flake8 sdks/python --max-line-length=120 --ignore=E501,W503
+      - name: Test cryptographic-privacy modules
+        run: |
+          pip install -r cryptographic-privacy/zkp/requirements.txt
+          pip install -r cryptographic-privacy/mpc/requirements.txt
+          pip install -r cryptographic-privacy/homomorphic/requirements.txt
+          python -m py_compile cryptographic-privacy/zkp/groth16.py
+          python -m py_compile cryptographic-privacy/mpc/shamir.py
+          python -m py_compile cryptographic-privacy/homomorphic/aggregator.py
+          python cryptographic-privacy/zkp/groth16.py
+          python cryptographic-privacy/mpc/shamir.py
+          python cryptographic-privacy/homomorphic/aggregator.py

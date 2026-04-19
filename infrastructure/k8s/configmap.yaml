@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-config
+  namespace: nexus
+  labels:
+    app.kubernetes.io/name: nexus-api
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  ConnectionStrings__Redis: "redis-service:6379"
+  ConnectionStrings__Neo4j: "bolt://neo4j-service:7687"
+  ConnectionStrings__Kafka: "kafka-service:9092"
+  ConnectionStrings__Nats: "nats://nats-service:4222"
+  ConnectionStrings__Elasticsearch: "http://elasticsearch-service:9200"
+  Nexus__DefaultTenantId: "tenant-default"
+  Nexus__MaxAgentsPerTenant: "200"
+  Nexus__MaxSwarmsPerTenant: "16"

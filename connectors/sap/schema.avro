@@ -1,0 +1,30 @@
+{
+  "namespace": "com.nexus.connectors.sap",
+  "type": "record",
+  "name": "SapRecord",
+  "doc": "Generic envelope for SAP entity records ingested by Nexus",
+  "fields": [
+    { "name": "id",         "type": "string",  "doc": "Nexus-generated record ID" },
+    { "name": "sapEntity",  "type": "string",  "doc": "SAP entity name, e.g. PurchaseOrder" },
+    { "name": "sapKey",     "type": "string",  "doc": "SAP primary key of the record" },
+    { "name": "tenantId",   "type": "string" },
+    { "name": "fetchedAt",  "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    {
+      "name": "payload",
+      "type": { "type": "map", "values": ["null","string","double","long","boolean"] },
+      "doc": "All field values as a dynamic map"
+    },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "record",
+        "name": "SapMetadata",
+        "fields": [
+          { "name": "system",   "type": "string", "default": "S4HANA" },
+          { "name": "client",   "type": "string", "default": "100" },
+          { "name": "language", "type": "string", "default": "EN" }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+name: WASM Build
+
+on:
+  push:
+    paths: [ 'wasm-agents/**' ]
+  pull_request:
+    paths: [ 'wasm-agents/**' ]
+
+jobs:
+  wasm-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+      - name: Build all WASM agents
+        working-directory: wasm-agents
+        run: cargo build --release --target wasm32-unknown-unknown
+      - name: List WASM artefacts
+        run: find wasm-agents/target/wasm32-unknown-unknown/release -name '*.wasm' | sort
+      - name: Upload WASM artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-agents
+          path: wasm-agents/target/wasm32-unknown-unknown/release/*.wasm

@@ -1,0 +1,13 @@
+{
+  "name": "@nexus-hyperintelligence/sdk",
+  "version": "0.1.0",
+  "description": "JavaScript/Node.js SDK for Nexus HyperIntelligence",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "example": "node examples/basic_usage.js"
+  },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

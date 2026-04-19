@@ -1,0 +1,23 @@
+name: JavaScript SDK
+
+on:
+  push:
+    paths: [ 'sdks/javascript/**' ]
+  pull_request:
+    paths: [ 'sdks/javascript/**' ]
+
+jobs:
+  sdk-javascript:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18.x', '20.x', '22.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Syntax check
+        run: node --check sdks/javascript/src/client.js
+      - name: Verify module exports
+        run: node -e "import('./sdks/javascript/src/index.js').then(m => { if (!m.NexusClient) throw new Error('missing export'); console.log('OK'); })"

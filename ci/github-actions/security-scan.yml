@@ -1,0 +1,59 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 3 * * 1'   # every Monday 03:00 UTC
+
+jobs:
+  trivy-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image for scanning
+        run: docker build -t nexus-api:scan -f src/Nexus.API/Dockerfile .
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'nexus-api:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  dotnet-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore Nexus.sln
+      - name: Audit NuGet packages
+        run: dotnet list Nexus.sln package --vulnerable --include-transitive 2>&1 | tee vuln-report.txt
+      - name: Fail if critical vulnerabilities found
+        run: |
+          if grep -qi "critical" vuln-report.txt; then
+            echo "Critical NuGet vulnerabilities found!" && exit 1
+          fi
+
+  python-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install safety
+        run: pip install safety
+      - name: Check cryptographic-privacy deps
+        run: |
+          pip install -r cryptographic-privacy/zkp/requirements.txt
+          pip install -r cryptographic-privacy/mpc/requirements.txt
+          pip install -r cryptographic-privacy/homomorphic/requirements.txt
+          safety check --full-report || true

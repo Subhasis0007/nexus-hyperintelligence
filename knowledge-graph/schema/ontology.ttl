@@ -1,0 +1,50 @@
+@prefix nexus:   <https://nexus-hyperintelligence.io/ontology#> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+# ── Ontology declaration ──────────────────────────────────────────────────────
+<https://nexus-hyperintelligence.io/ontology>
+    a owl:Ontology ;
+    rdfs:label "Nexus HyperIntelligence Ontology" ;
+    dcterms:description "Ontology for the Nexus multi-agent AI platform" ;
+    owl:versionInfo "1.0.0" .
+
+# ── Classes ───────────────────────────────────────────────────────────────────
+nexus:Agent       a owl:Class ; rdfs:label "Agent" .
+nexus:Swarm       a owl:Class ; rdfs:label "Swarm" .
+nexus:Tenant      a owl:Class ; rdfs:label "Tenant" .
+nexus:Connector   a owl:Class ; rdfs:label "Connector" .
+nexus:KnowledgeNode a owl:Class ; rdfs:label "KnowledgeNode" .
+nexus:Task        a owl:Class ; rdfs:label "Task" .
+nexus:CryptoKey   a owl:Class ; rdfs:label "CryptoKey" .
+nexus:WasmAgent   a owl:Class ; rdfs:label "WasmAgent" ;
+    rdfs:subClassOf nexus:Agent .
+
+# ── Object Properties ─────────────────────────────────────────────────────────
+nexus:belongsToSwarm   a owl:ObjectProperty ; rdfs:domain nexus:Agent   ; rdfs:range nexus:Swarm .
+nexus:belongsToTenant  a owl:ObjectProperty ;
+    rdfs:domain [ owl:unionOf (nexus:Agent nexus:Swarm nexus:Connector) ] ;
+    rdfs:range nexus:Tenant .
+nexus:hasAgent         a owl:ObjectProperty ; owl:inverseOf nexus:belongsToSwarm .
+nexus:executesTask     a owl:ObjectProperty ; rdfs:domain nexus:Agent    ; rdfs:range nexus:Task .
+nexus:connectsTo       a owl:ObjectProperty ; rdfs:domain nexus:Connector ; rdfs:range nexus:KnowledgeNode .
+nexus:relatesTo        a owl:ObjectProperty ; rdfs:domain nexus:KnowledgeNode ; rdfs:range nexus:KnowledgeNode .
+nexus:securedBy        a owl:ObjectProperty ;
+    rdfs:domain [ owl:unionOf (nexus:Agent nexus:Tenant nexus:Connector) ] ;
+    rdfs:range nexus:CryptoKey .
+
+# ── Data Properties ───────────────────────────────────────────────────────────
+nexus:agentId         a owl:DatatypeProperty ; rdfs:domain nexus:Agent      ; rdfs:range xsd:string .
+nexus:agentName       a owl:DatatypeProperty ; rdfs:domain nexus:Agent      ; rdfs:range xsd:string .
+nexus:capability      a owl:DatatypeProperty ; rdfs:domain nexus:Agent      ; rdfs:range xsd:string .
+nexus:confidenceScore a owl:DatatypeProperty ; rdfs:domain nexus:Agent      ; rdfs:range xsd:double .
+nexus:messageCount    a owl:DatatypeProperty ; rdfs:domain nexus:Agent      ; rdfs:range xsd:integer .
+nexus:swarmId         a owl:DatatypeProperty ; rdfs:domain nexus:Swarm      ; rdfs:range xsd:string .
+nexus:swarmType       a owl:DatatypeProperty ; rdfs:domain nexus:Swarm      ; rdfs:range xsd:string .
+nexus:tenantId        a owl:DatatypeProperty ; rdfs:domain nexus:Tenant     ; rdfs:range xsd:string .
+nexus:createdAt       a owl:DatatypeProperty ;
+    rdfs:domain [ owl:unionOf (nexus:Agent nexus:Swarm nexus:Tenant) ] ;
+    rdfs:range xsd:dateTimeStamp .

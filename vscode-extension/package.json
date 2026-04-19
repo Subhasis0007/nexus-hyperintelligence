@@ -1,0 +1,93 @@
+{
+  "name": "nexus-hyperintelligence",
+  "displayName": "Nexus HyperIntelligence",
+  "description": "VS Code extension for the Nexus HyperIntelligence platform — explore agents, swarms, connectors and crypto operations",
+  "version": "0.1.0",
+  "publisher": "nexus-hyperintelligence",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Other"],
+  "icon": "resources/icon.png",
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "nexus.refreshAgents",
+        "title": "Nexus: Refresh Agents",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "nexus.refreshSwarms",
+        "title": "Nexus: Refresh Swarms",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "nexus.setEndpoint",
+        "title": "Nexus: Set API Endpoint"
+      },
+      {
+        "command": "nexus.runHealthCheck",
+        "title": "Nexus: Run Health Check"
+      },
+      {
+        "command": "nexus.generateKyberKeypair",
+        "title": "Nexus: Generate Kyber Keypair"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "nexusAgentExplorer",
+          "name": "Nexus Agents",
+          "contextualTitle": "Nexus HyperIntelligence"
+        },
+        {
+          "id": "nexusSwarmExplorer",
+          "name": "Nexus Swarms",
+          "contextualTitle": "Nexus HyperIntelligence"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "nexus.refreshAgents",
+          "when": "view == nexusAgentExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "nexus.refreshSwarms",
+          "when": "view == nexusSwarmExplorer",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Nexus HyperIntelligence",
+      "properties": {
+        "nexus.apiEndpoint": {
+          "type": "string",
+          "default": "http://localhost:5000",
+          "description": "Base URL of the Nexus API"
+        },
+        "nexus.tenantId": {
+          "type": "string",
+          "default": "tenant-default",
+          "description": "Default tenant ID sent with all requests"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "@types/node": "20.x",
+    "typescript": "^5.4.0",
+    "@vscode/vsce": "^2.31.0"
+  }
+}

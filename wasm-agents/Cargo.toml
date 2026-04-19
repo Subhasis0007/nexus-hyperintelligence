@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [
+  "agents/agent_001",
+  "agents/agent_002",
+  "agents/agent_003",
+  "agents/agent_004",
+  "agents/agent_005",
+  "agents/agent_006",
+  "agents/agent_007",
+  "agents/agent_008",
+  "agents/agent_009",
+  "agents/agent_010",
+]
+
+[profile.release]
+opt-level = "s"   # optimize for size in WASM
+lto = true
+codegen-units = 1

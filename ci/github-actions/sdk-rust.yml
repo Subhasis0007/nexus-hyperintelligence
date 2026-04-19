@@ -1,0 +1,25 @@
+name: Rust SDK
+
+on:
+  push:
+    paths: [ 'sdks/rust/**' ]
+  pull_request:
+    paths: [ 'sdks/rust/**' ]
+
+jobs:
+  sdk-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build SDK
+        working-directory: sdks/rust
+        run: cargo build --release
+      - name: Test SDK
+        working-directory: sdks/rust
+        run: cargo test
+      - name: Clippy
+        working-directory: sdks/rust
+        run: cargo clippy -- -D warnings

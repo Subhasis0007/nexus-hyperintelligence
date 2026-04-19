@@ -1,0 +1,196 @@
+"""
+Nexus Knowledge Graph Schema — GraphQL SDL
+"""
+
+type Agent {
+  id: ID!
+  name: String!
+  tenantId: String!
+  capability: AgentCapability!
+  status: AgentStatus!
+  swarmId: String
+  confidenceScore: Float!
+  messageCount: Int!
+  createdAt: String!
+  lastActiveAt: String
+  tags: [String!]!
+  metadata: JSON
+  relatedAgents: [Agent!]!
+  swarm: Swarm
+}
+
+type Swarm {
+  id: ID!
+  name: String!
+  tenantId: String!
+  type: SwarmType!
+  status: SwarmStatus!
+  agentCount: Int!
+  consensusAlgorithm: ConsensusAlgorithm!
+  agents: [Agent!]!
+  metrics: SwarmMetrics
+  createdAt: String!
+}
+
+type Tenant {
+  id: ID!
+  name: String!
+  status: TenantStatus!
+  tier: TenantTier!
+  limits: TenantLimits!
+  usage: TenantUsage!
+  createdAt: String!
+  swarms: [Swarm!]!
+  agents: [Agent!]!
+}
+
+type KnowledgeNode {
+  id: ID!
+  label: String!
+  tenantId: String
+  properties: JSON
+  relatedNodes: [KnowledgeNode!]!
+  edges: [KnowledgeEdge!]!
+}
+
+type KnowledgeEdge {
+  id: ID!
+  fromNodeId: ID!
+  toNodeId: ID!
+  relationType: String!
+  weight: Float!
+  properties: JSON
+}
+
+type SwarmMetrics {
+  tasksExecuted: Int!
+  successRate: Float!
+  avgExecutionMs: Float!
+  consensusRoundsWon: Int!
+}
+
+type TenantLimits {
+  maxAgents: Int!
+  maxSwarms: Int!
+  maxApiCallsPerMinute: Int!
+  maxStorageGb: Float!
+}
+
+type TenantUsage {
+  activeAgents: Int!
+  activeSwarms: Int!
+  totalApiCalls: Long!
+  storageUsedGb: Float!
+}
+
+type Query {
+  agent(id: ID!): Agent
+  agents(tenantId: String!, page: Int, pageSize: Int): AgentPage!
+  swarm(id: ID!): Swarm
+  swarms(tenantId: String!): [Swarm!]!
+  tenant(id: ID!): Tenant
+  tenants: [Tenant!]!
+  knowledgeNode(id: ID!): KnowledgeNode
+  knowledgeSearch(query: String!, tenantId: String, topK: Int): [KnowledgeNode!]!
+}
+
+type Mutation {
+  createAgent(input: AgentCreateInput!): Agent!
+  updateAgent(id: ID!, input: AgentUpdateInput!): Agent!
+  executeAgentTask(agentId: ID!, taskType: String!, parameters: JSON): AgentTaskResult!
+  createSwarm(input: SwarmCreateInput!): Swarm!
+  runSwarmConsensus(swarmId: ID!, proposalId: String!, proposal: String!): ConsensusResult!
+  createTenant(input: TenantCreateInput!): Tenant!
+  addKnowledgeNode(input: KnowledgeNodeInput!): KnowledgeNode!
+}
+
+type Subscription {
+  agentStatusChanged(tenantId: String!): Agent!
+  swarmEvent(swarmId: ID!): SwarmEventPayload!
+  consensusUpdate(swarmId: ID!): ConsensusResult!
+}
+
+type AgentPage {
+  items: [Agent!]!
+  totalCount: Int!
+  page: Int!
+  pageSize: Int!
+}
+
+type AgentTaskResult {
+  taskId: ID!
+  agentId: String!
+  success: Boolean!
+  output: JSON
+  executionMs: Int!
+}
+
+type ConsensusResult {
+  proposalId: String!
+  approved: Boolean!
+  totalVotes: Int!
+  approvalVotes: Int!
+  rejectionVotes: Int!
+  executedAt: String!
+}
+
+type SwarmEventPayload {
+  swarmId: ID!
+  eventType: String!
+  data: JSON
+  timestamp: String!
+}
+
+input AgentCreateInput {
+  name: String!
+  tenantId: String!
+  capability: AgentCapability!
+  swarmId: String
+  tags: [String!]
+  metadata: JSON
+}
+
+input AgentUpdateInput {
+  name: String
+  swarmId: String
+  tags: [String!]
+  metadata: JSON
+}
+
+input SwarmCreateInput {
+  name: String!
+  tenantId: String!
+  type: SwarmType!
+  consensusAlgorithm: ConsensusAlgorithm
+}
+
+input TenantCreateInput {
+  name: String!
+  contactEmail: String!
+  tier: TenantTier
+}
+
+input KnowledgeNodeInput {
+  id: ID!
+  label: String!
+  tenantId: String
+  properties: JSON
+}
+
+enum AgentCapability {
+  Analytics Security DataIngestion Intelligence Prediction Compliance
+  Monitoring Orchestration Knowledge Communication Optimization
+  Resilience Discovery Transformation Validation Evolution
+}
+
+enum AgentStatus  { Idle Running Paused Error Terminated }
+enum SwarmType    { Analytics Security DataIngestion Intelligence Prediction Compliance
+                   Monitoring Orchestration Knowledge Communication Optimization
+                   Resilience Discovery Transformation Validation Evolution }
+enum SwarmStatus  { Initializing Active Paused Terminated Error }
+enum TenantStatus { Active Inactive Suspended }
+enum TenantTier   { Free Professional Enterprise }
+enum ConsensusAlgorithm { Raft PBFT DPoS HotStuff }
+
+scalar JSON
+scalar Long

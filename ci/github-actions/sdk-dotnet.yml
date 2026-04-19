@@ -1,0 +1,25 @@
+name: .NET SDK
+
+on:
+  push:
+    paths: [ 'sdks/dotnet/**' ]
+  pull_request:
+    paths: [ 'sdks/dotnet/**' ]
+
+jobs:
+  sdk-dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build SDK
+        run: dotnet build sdks/dotnet/NexusSDK.csproj --configuration Release
+      - name: Pack
+        run: dotnet pack sdks/dotnet/NexusSDK.csproj --configuration Release --no-build --output ./artifacts
+      - name: Upload NuGet package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-sdk-nuget
+          path: ./artifacts/*.nupkg

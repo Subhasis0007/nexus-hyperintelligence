@@ -1,0 +1,18 @@
+{
+  "namespace": "com.nexus.connectors.servicenow",
+  "type": "record",
+  "name": "ServiceNowRecord",
+  "doc": "Generic envelope for ServiceNow table records ingested by Nexus",
+  "fields": [
+    { "name": "id",         "type": "string", "doc": "Nexus-generated record ID" },
+    { "name": "sysId",      "type": "string", "doc": "ServiceNow sys_id" },
+    { "name": "tableName",  "type": "string", "doc": "ServiceNow table, e.g. incident" },
+    { "name": "tenantId",   "type": "string" },
+    { "name": "instance",   "type": "string", "doc": "ServiceNow instance URL" },
+    { "name": "fetchedAt",  "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    {
+      "name": "fields",
+      "type": { "type": "map", "values": ["null","string","double","long","boolean"] }
+    }
+  ]
+}
